@@ -1,0 +1,21 @@
+{
+  "name": "Focuskeeper",
+  "version": "0.1",
+  "description": "Track your time",
+  "browser_action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{ 
+    "js": ["scripts/popup.js"],
+    "matches": ["http://*/*", "https://*/*"]
+  }],
+  "background": {
+    "scripts": ["scripts/background.js"],
+    "persistent": true
+  },
+  "permissions": [
+    "background",
+    "tabs"
+  ],
+  "manifest_version": 2
+}

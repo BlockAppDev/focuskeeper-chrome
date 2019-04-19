@@ -10,9 +10,8 @@ let port = chrome.runtime.connect({name: 'focuskeeper'})
 port.postMessage({ req: 'popup'})
 port.onMessage.addListener(msg => {
   //port.postMessage({msg: 'thanks'})
-  document.getElementById('total').textContent = `${msToTime(msg.total)} s`
+  document.getElementById('total').textContent = `${msToTime(msg.total)}`
   document.getElementById('url').textContent = `${msg.host}`
   document.getElementById('url-total').textContent = `${msToTime(msg.hostTotal)} today`
-  console.log(active)
 })
 

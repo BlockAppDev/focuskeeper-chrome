@@ -1,98 +1,104 @@
-let active = {}
-let prevHost = null;
+var sessions = {}
+var tabs = {}
+var currentTabId = -1
 
-const endSession = host => {
-  console.log('ending ' + host)
-  if (!host) 
-    return
-  
-  let s = active[host][active[host].length - 1] // last session
-  if (s.end) 
-    return
-  s.end = new Date()
-  s.duration = s.end - s.start
+const getHost = url => {
+  let parser = document.createElement('a')
+  parser.href = url
+  return parser.host.replace('www.', '')
 }
 
-const addSession = host => {
-  console.log('adding ' + host)
-  active[host].push({
-    start: new Date(),
-    end: null,
-    duration: null
+const startSession = (host) => {
+  console.log('start', host)
+  if (!(host in sessions)) {
+    sessions[host] = []
+  }
+  sessions[host].push({ 
+    host, 
+    start: new Date()
   })
 }
 
-const getHostname = url => {
-  let parser = document.createElement('a')
-  parser.href = url
-  return parser.host
+const endSession = (host) => {
+  console.log('end', host)
+  if (!(host in sessions))
+    return
+  let length = sessions[host].length
+  let obj = sessions[host][length - 1]
+
+  if (obj.hasOwnProperty('end')) {
+    return //ignore if ended (closing other tab)
+  }
+  obj.end = new Date()
+  obj.duration = obj.end - obj.start
 }
 
 // on tab create/update
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  // console.log('tabId', tabId)
-  // console.log('changeInfo', changeInfo)
-  // console.log('tab', tab)
-  console.log('*')
-  if (changeInfo.url) {
-    let hostname = getHostname(changeInfo.url)
-    if (hostname in active) {
-      endSession(prevHost)
-      addSession(hostname)
-    } else {
-      if (prevHost in active) {
-        endSession(prevHost)
+  if (changeInfo.status && changeInfo.status === 'complete') {
+    if (currentTabId in tabs) {
+      let from = getHost(tabs[currentTabId].url)
+      let to = getHost(tab.url)
+      if (from !== to) {
+        endSession(from)
+        startSession(to)
+        //console.log('switching from', from, 'to', to)
       }
-      active[hostname] = [{
-        start: new Date,
-        end: null,
-        duration: null
-      }]
+    } else {
+      startSession(getHost(tab.url))
+      //console.log('opened', getHost(tab.url))
     }
-    prevHost = hostname
-    console.log(active)
+    tabs[tab.id] = tab
+    currentTabId = tab.id
   }
+  //console.log(sessions)
 })
 
 chrome.tabs.onReplaced.addListener((addedTab, removedTab) => {
-  console.log('ADDED TAB', addedTab)
-  // console.log('changeInfo', changeInfo)
-  console.log('replaced')
+  console.log(addedTab, removedTab)
 })
 
 chrome.tabs.onActivated.addListener(activeInfo => {
-  console.log(activeInfo)
-  endSession(prevHost)
-  chrome.tabs.query({ active: true }, tabs => {
-    console.log(tabs)
-  })
-  console.log(active)
+  let tabId = activeInfo.tabId
+  
+  if (tabId === currentTabId)
+    return
+
+  if (tabId in tabs) {
+    if (currentTabId in tabs) {
+      let from = getHost(tabs[currentTabId].url)
+      let to = getHost(tabs[tabId].url)
+      endSession(from)
+      startSession(to)
+      //console.log('switched from', tabs[currentTabId].title, 'to', tabs[tabId].title)
+    } else {
+      //console.log('opened', tabs[activeInfo.tabId].title)
+      startSession(getHost(tabs[tabId].url))
+    }
+    currentTabId = tabId
+  }
+  //console.log(sessions)
 })
 
-chrome.runtime.onConnect.addListener(port => {
-  console.assert(port.name === 'focuskeeper')
-  port.onMessage.addListener(msg => {
-    console.log(msg)
-    if (msg.req === 'popup') {
-      let total = 0
-      let hostTotal = 0
-      for (let hostname in active) {
-        active[hostname].forEach(s => {
-          if (s.duration) {
-            total += s.duration;
-            if (hostname === prevHost) 
-              hostTotal += s.duration
-          }
-        })
-      }
-      port.postMessage({ total, host: prevHost, hostTotal })
-    }
-  })
-})
 
 // on tab close
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
-  console.log('removed')
-  // console.log('tabId', tabId)
-  // console.log('removeInfo', removeInfo)
+  if (tabId in tabs) {
+    //console.log('closed', tabs[tabId].url)
+    let host = getHost(tabs[tabId].url)
+    let otherTabwithHost = false
+    delete tabs[tabId]
+    
+    // check if other tabs with same host exists
+    Object.values(tabs).forEach(tab => {
+      if (getHost(tab.url) === host) {
+        otherTabwithHost = true
+      }
+    })
+    if (!otherTabwithHost) {
+      endSession(host)
+    }
+    
+  }
+  //console.log(sessions)
 })

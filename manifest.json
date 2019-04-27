@@ -1,12 +1,15 @@
 {
-  "name": "Focuskeeper",
+  "name": "FocusKeeper",
   "version": "0.1",
-  "description": "Track your time",
+  "description": "Track time spent on the web",
   "browser_action": {
     "default_popup": "popup.html"
   },
   "content_scripts": [{ 
     "js": ["scripts/popup.js"],
+    "matches": ["http://*/*", "https://*/*"]
+  }, { 
+    "js": ["scripts/jquery-3.4.0.slim.min.js"],
     "matches": ["http://*/*", "https://*/*"]
   }],
   "background": {

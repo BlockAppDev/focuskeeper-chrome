@@ -18,6 +18,9 @@
   },
   "permissions": [
     "background",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>",
     "tabs"
   ],
   "manifest_version": 2

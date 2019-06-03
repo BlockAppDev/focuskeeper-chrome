@@ -8,7 +8,7 @@ let msToTime = duration => {
 }
 
 console.log('executing popup.js')
-let { tabs, sessions, blockList } = chrome.extension.getBackgroundPage()
+let { tabs, sessions } = chrome.extension.getBackgroundPage()
 console.log(tabs, sessions)
 
 let getHost = url => {
@@ -52,8 +52,14 @@ let createItem = (favIconUrl, hostname, id) => {
 //     console.log('Not in focus')
 //   }
 // }
-
 // //setInterval(checkPageFocus, 1000)
+
+chrome.extension.onMessage.addListener(function(msg, sender, sendResponse) {
+  if (msg.action == 'open_dialog_box') {
+    console.log('message recieved!')
+    alert("Message recieved!");
+  }
+});
 
 /* HANDLE TOTAL DURATION */
 let totalDuration = 0
@@ -67,13 +73,6 @@ Object.values(sessions).forEach(host => {
   })
 })
 $('#time-main').text(msToTime(totalDuration))
-
-/* HANDLE BLOCKED ITEMS */
-console.log(blockList)
-Array.from(blockList).forEach(host => {
-  console.log("host", host)
-  createItem("https://www.siteinspire.com/favicon.png", host, '#blocked-items')
-})
 
 /* HANDLE ACTIVE TABS */
 Object.values(tabs).forEach(tab => {

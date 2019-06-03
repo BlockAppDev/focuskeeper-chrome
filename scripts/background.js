@@ -1,11 +1,6 @@
 var sessions = {}
 var tabs = {}
 var currentTabId = -1
-var blockList = new Set([
-  "reddit.com",
-  "youtube.com",
-  "facebook.com"
-])
 
 const getHost = url => {
   let parser = document.createElement('a')
@@ -25,7 +20,7 @@ const startSession = (host, favIconUrl) => {
   })
 }
 
-const endSession = (host) => {
+const endSession = (host, cb) => {
   console.log('end', host)
   if (!(host in sessions))
     return
@@ -37,6 +32,20 @@ const endSession = (host) => {
   }
   obj.end = new Date()
   obj.duration = obj.end - obj.start
+  if (cb !== undefined) {
+    console.log('running callback')
+    cb(host, obj.duration)
+  }
+}
+
+const saveDuration = (host, duration) => {
+  console.log('SAVING DATA', host, duration)
+  fetch(`http://localhost:8000/data?url=${host}&seconds=${parseInt(duration/100, 10)}`, { method: 'PUT' })
+  .then(res => {
+    if (res.status === 200) {
+      console.log('Saved data successfully')
+    }
+  }).catch(e => console.log('Error saving', e))
 }
 
 // on tab create/update
@@ -44,12 +53,25 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   console.log('enter onUpdated')
 
   let { status, url } = changeInfo 
-  if (status && status === 'loading' && blockList.has(getHost(url))) {
-    console.log('Going to block')
-    chrome.tabs.update(tabId, { url: 'chrome://newtab' }, () => {
-      console.log('Blocked', tab.url)
+
+  fetch(`http://localhost:8000/blocked?url=${getHost(url)}`)
+    .then(res => res.json())
+    .then(res => {
+      if (status && status === 'loading' && res.blocked) {
+
+        // send message to popup.js
+        console.log('sending message')
+        chrome.tabs.query({active: true, currentWindow: true}, function(tabs){
+          chrome.tabs.sendMessage(tabs[0].id, {action: "open_dialog_box"}, function(response) {});  
+        });
+
+        console.log('Going to block')
+        chrome.tabs.update(tabId, { url: 'chrome://newtab' }, () => {
+          console.log('Blocked', tab.url)
+        })
+      }
     })
-  } 
+    .catch(e => console.log(e))
 
   if (status && status === 'complete') {
     console.log('run onUpdated')
@@ -114,9 +136,11 @@ chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
         otherTabwithHost = true
       }
     })
+
+    // no other tabs with same host
+    console.log('session:', sessions)
     if (!otherTabwithHost) {
-      endSession(host)
+      endSession(host, saveDuration)
     }
-    
   }
 })
